@@ -5,11 +5,12 @@
 #include <vector>
 
 
-void create_simple_csr_spmv_problem(std::vector<int>& row_offsets,
-                                    std::vector<int>& column_indices,
-                                    std::vector<float>& values,
-                                    std::vector<float>& x,
-                                    std::vector<float>& y)
+template<class IndexVector, class ValueVector>
+void create_simple_csr_spmv_problem(IndexVector& row_offsets,
+                                    IndexVector& column_indices,
+                                    ValueVector& values,
+                                    ValueVector& x,
+                                    ValueVector& y)
 {
   // construct a representation for the following matrix
   //    [10  0 20]
@@ -48,10 +49,11 @@ void create_simple_csr_spmv_problem(std::vector<int>& row_offsets,
 }
 
 
+template<class IndexVector, class ValueVector>
 void laplacian_5pt(int n,
-                   std::vector<int>& row_offsets,
-                   std::vector<int>& column_indices,
-                   std::vector<float>& values)
+                   IndexVector& row_offsets,
+                   IndexVector& column_indices,
+                   ValueVector& values)
 {
   int num_rows = n*n;
   int num_nonzeros = 5*n*n - 4*n;
@@ -125,7 +127,9 @@ float max_relative_error(const float* a, const float* b, int n)
 }
 
 
-bool almost_equal(const std::vector<float>& a, const std::vector<float>& b, float threshold = 5 * std::sqrt(std::numeric_limits<float>::epsilon()))
+template<class Vector>
+bool almost_equal(const Vector& a, const Vector& b,
+                  typename Vector::value_type threshold = 5 * std::sqrt(std::numeric_limits<typename Vector::value_type>::epsilon()))
 {
   return max_relative_error(a.data(), b.data(), a.size()) <= threshold;
 }
