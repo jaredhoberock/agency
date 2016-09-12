@@ -18,6 +18,7 @@ void create_simple_csr_spmv_problem(IndexVector& row_offsets,
   //    [ 0  0 30]
   //    [40 50 60]
 
+  int num_columns = 3;
   int num_rows = 4;
   int num_nonzeros = 6;
 
@@ -35,17 +36,17 @@ void create_simple_csr_spmv_problem(IndexVector& row_offsets,
   column_indices[1] = 2; values[1] = 20;
   column_indices[2] = 2; values[2] = 30;
   column_indices[3] = 0; values[3] = 40;
-  column_indices[4] = 1; values[3] = 50;
-  column_indices[5] = 2; values[3] = 60;
+  column_indices[4] = 1; values[4] = 50;
+  column_indices[5] = 2; values[5] = 60;
 
-  x.resize(num_rows);
-  std::iota(x.begin(), x.end(), 0);
+  x.resize(num_columns);
+  std::fill(x.begin(), x.end(), 1);
 
   y.resize(num_rows);
-  y[0] = 40;
-  y[1] =  0;
-  y[2] = 60;
-  y[3] =  0;
+  y[0] =  30;
+  y[1] =   0;
+  y[2] =  30;
+  y[3] = 150;
 }
 
 
@@ -131,6 +132,6 @@ template<class Vector>
 bool almost_equal(const Vector& a, const Vector& b,
                   typename Vector::value_type threshold = 5 * std::sqrt(std::numeric_limits<typename Vector::value_type>::epsilon()))
 {
-  return max_relative_error(a.data(), b.data(), a.size()) <= threshold;
+  return (a.size() == b.size()) && max_relative_error(a.data(), b.data(), a.size()) <= threshold;
 }
 
