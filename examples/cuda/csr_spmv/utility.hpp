@@ -3,6 +3,8 @@
 #include <numeric>
 #include <limits>
 #include <vector>
+#include <random>
+#include <algorithm>
 
 
 template<class IndexVector, class ValueVector>
@@ -136,5 +138,15 @@ bool almost_equal(const Vector& a, const Vector& b,
                   typename Vector::value_type threshold = 5 * std::sqrt(std::numeric_limits<typename Vector::value_type>::epsilon()))
 {
   return (a.size() == b.size()) && max_relative_error(a.data(), b.data(), a.size()) <= threshold;
+}
+
+
+template<class Vector>
+void fill_random(Vector& vec, int seed = 13)
+{
+  using value_type = typename Vector::value_type;
+  auto dist = std::uniform_real_distribution<value_type>(-1.0, 1.0);
+  auto rng = std::bind(dist, std::default_random_engine());
+  std::generate(vec.begin(), vec.end(), rng);
 }
 

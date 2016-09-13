@@ -1,4 +1,4 @@
-#include "utility.hpp"
+#include "utility.hpp" // contains utility functions helpful to this program
 
 #include <agency/agency.hpp>
 #include <agency/cuda.hpp>
@@ -54,13 +54,13 @@ void parallel_csr_spmv(int num_rows,
     __shared__ volatile float sdata[warps_per_block * warp_size + warp_size/2];      // padded to avoid reduction ifs
     __shared__ volatile int ptrs[warps_per_block][2];
     
-    const int thread_id   = block_size * blockIdx.x + threadIdx.x;  // global thread index
-    const int thread_lane = threadIdx.x & (warp_size-1);            // thread index within the warp
-    const int warp_id     = thread_id   / warp_size;                // global warp index
-    const int warp_lane   = threadIdx.x / warp_size;                // warp index within the CTA
-    const int num_warps   = warps_per_block * gridDim.x;   // total number of active warps
+    const int global_id      = block_size * blockIdx.x + threadIdx.x;  // global thread index
+    const int thread_lane    = threadIdx.x & (warp_size-1);            // thread index within the warp
+    const int global_warp_id = global_id   / warp_size;                // global warp index
+    const int warp_lane      = threadIdx.x / warp_size;                // warp index within the CTA
+    const int num_warps      = warps_per_block * gridDim.x;            // total number of active warps
 
-    for(int row = warp_id; row < num_rows; row += num_warps)
+    for(int row = global_warp_id; row < num_rows; row += num_warps)
     {
       // use two threads to fetch row_offsets[row] and row_offsets[row+1]
       // this is considerably faster than the straightforward version
@@ -99,12 +99,12 @@ void parallel_csr_spmv(int num_rows,
 
 int main()
 {
-  // create shorthand for the vectors we will use in this program
+  // create shorthand for the vector types we will use in this program
   using index_vector = std::vector<int, agency::cuda::allocator<int>>;
   using value_vector = std::vector<float, agency::cuda::allocator<float>>;
 
   {
-    // test our implementation's correctness on simple SPMV problem
+    // test our implementation's correctness on a simple SPMV problem
     index_vector row_offsets;
     index_vector column_indices;
     value_vector values;
@@ -129,18 +129,21 @@ int main()
   }
 
   {
-    index_vector row_offsets;
-    index_vector column_indices;
-    value_vector values;
+    int n = 1 << 12;
 
     // create a CSR matrix
     int num_rows, num_columns;
-    laplacian_5pt(1 << 12, num_rows, num_columns, row_offsets, column_indices, values);
+    index_vector row_offsets;
+    index_vector column_indices;
+    value_vector values;
+    laplacian_5pt(n, num_rows, num_columns, row_offsets, column_indices, values);
 
-    // XXX should generate random matrix values
+    // fill the matrix with random values
+    fill_random(values, 7);
 
-    // XXX should generate random vector values
-    value_vector x(num_columns, 1);
+    // create a vector and fill it with random values
+    value_vector x(num_columns);
+    fill_random(x, 13);
 
     // compute reference solution
     value_vector reference(num_rows);
