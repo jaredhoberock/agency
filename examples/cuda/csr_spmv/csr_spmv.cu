@@ -90,7 +90,7 @@ void parallel_csr_spmv(int num_rows,
       // first thread writes warp result
       if(thread_lane == 0)
       {
-        y[row] += sdata[threadIdx.x];
+        y[row] = sdata[threadIdx.x];
       }
     } // end for row
   });
