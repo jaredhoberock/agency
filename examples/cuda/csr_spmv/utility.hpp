@@ -51,12 +51,15 @@ void create_simple_csr_spmv_problem(IndexVector& row_offsets,
 
 
 template<class IndexVector, class ValueVector>
-void laplacian_5pt(int n,
+void laplacian_5pt(int  n,
+                   int& num_rows,
+                   int& num_columns,
                    IndexVector& row_offsets,
                    IndexVector& column_indices,
                    ValueVector& values)
 {
-  int num_rows = n*n;
+  num_rows = n*n;
+  num_columns = num_rows;
   int num_nonzeros = 5*n*n - 4*n;
 
   row_offsets.resize(num_rows + 1);

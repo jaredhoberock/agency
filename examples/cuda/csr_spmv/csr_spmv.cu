@@ -134,9 +134,8 @@ int main()
     value_vector values;
 
     // create a CSR matrix
-    int num_rows = 128;
-    int num_columns = num_rows;
-    laplacian_5pt(num_rows, row_offsets, column_indices, values);
+    int num_rows, num_columns;
+    laplacian_5pt(1 << 12, num_rows, num_columns, row_offsets, column_indices, values);
 
     // XXX should generate random matrix values
 
