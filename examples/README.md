@@ -1,12 +1,10 @@
-This is the top-level directory of Agency's example programs.
-
 # Building and Running Example Programs
 
 Each example program is built from a single source file. To build an example program by hand, compile a source file with a C++11 or better compiler. For example, the following command builds the `hello_world.cpp` source file from the `examples` directory:
 
     $ clang -I.. -std=c++11 -lstdc++ -pthread hello_world.cpp
 
-Example programs which require special compiler features, such as language extensions, are organized into subdirectories. For example, the `/cuda' subdirectory contains example programs which require a C++ compiler supporting CUDA language extensions.
+Example programs which require special compiler features, such as language extensions, are organized into subdirectories. For example, the `/cuda` subdirectory contains example programs which require a C++ compiler supporting CUDA language extensions.
 
 CUDA C++ source (`.cu` files) should be built with the NVIDIA compiler (`nvcc`). Include the `--expt-extended-lambda` option:
 

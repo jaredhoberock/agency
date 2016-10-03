@@ -1,59 +1,152 @@
-Agency
+What is Agency?
 ===============
 
-Agency is an experiment exploring how to marry bulk synchronous parallel programming with the components described in the Technical Specification for C++ Extensions for Parallelism. The programming model Agency embodies is intended to be suited to all parallel architectures and is particularly exploitable by wide architectures exposing fine-grained parallelism.
+Agency is an experimental C++ template library for parallel programming. Unlike
+higher-level parallel algorithms libraries like [Thrust](thrust.github.io),
+Agency provides **lower-level** primitives for **creating execution**. Agency
+interoperates with standard components like **execution policies** and
+**executors** to enable the creation of **portable** parallel algorithms.
 
-The `bulk_invoke` function creates groups of execution agents which all invoke a lambda en masse:
+# Examples
 
-    template<class Iterator, class T, class BinaryFunction>
-    T reduce(Iterator first, Iterator last, T init, BinaryFunction binary_op)
-    {
-      using namespace agency;
-      auto n = std::distance(first, last);
+Agency is best-explained through examples. The following program implements a parallel sum.
 
-      // reduce partitions of data into partial sums
-      auto partial_sums = bulk_invoke(par, [=](parallel_agent& g)
-      {
-        auto i = g.index();
-        auto partition_size = (n + g.group_size() - 1) / g.group_size();
+~~~~{.cpp}
+#include <agency/agency.hpp>
+#include <agency/experimental.hpp>
+#include <vector>
+#include <numeric>
+#include <iostream>
+#include <cassert>
 
-        auto partition_begin = first + partition_size * i;
-        auto partition_end   = std::min(last, partition_begin + partition_size);
+int parallel_sum(int* data, int n)
+{
+  // create a view of the input
+  agency::experimental::span<int> input(data, n);
 
-        return reduce(seq, partition_begin + 1, partition_end, *partition_begin, binary_op);
-      });
+  // divide the input into 8 tiles
+  int num_agents = 8;
+  auto tiles = agency::experimental::tile_evenly(input, num_agents);
 
-      return reduce(seq, partial_sums.begin(), partial_sums.end(), init, binary_op);
-    }
+  // create 8 agents to sum each tile in parallel
+  auto partial_sums = agency::bulk_invoke(agency::par(num_agents), [=](agency::parallel_agent& self)
+  {
+    // get this parallel agent's tile
+    auto this_tile = tiles[self.index()];
 
-# Design Goals
+    // return the sum of this tile
+    return std::accumulate(this_tile.begin(), this_tile.end(), 0);
+  });
 
-The design of the library is intended to achieve the following goals:
+  // return the sum of partial sums
+  return std::accumulate(partial_sums.begin(), partial_sums.end(), 0);
+}
 
-  * Deliver efficiency by exploiting structured concurrency and sharing
+int main()
+{
+  // create a large vector filled with 1s
+  std::vector<int> vec(32 << 20, 1);
 
-  * Build upon the execution policy approach introduced by the Parallelism TS
+  int sum = parallel_sum(vec.data(), vec.size());
 
-  * Interface to the underlying platform via executors
+  std::cout << "sum is " << sum << std::endl;
 
-  * Provide a mechanism for controlling the placement of work to be created
+  assert(sum == vec.size());
 
-# Building the Example Programs
+  return 0;
+}
+~~~~
 
-Programs with filenames ending in the `.cpp` extension are compilable with a C++11 compiler, e.g.:
+-----------
 
-    $ g++ -std=c++11 -I. -pthread example.cpp
 
-or
+This code example implements a vector sum operation and executes it sequentially, in parallel, in parallel on a single GPU, and finally multiple GPUs:
 
-    $ clang -std=c++11 -I. -pthread -lstdc++ example.cpp
+~~~~{.cpp}
+#include <agency/agency.hpp>
+#include <agency/cuda.hpp>
+#include <vector>
+#include <cassert>
+#include <iostream>
+#include <algorithm>
 
-or
+int main()
+{
+  using namespace agency;
 
-    $ icc -std=c++11 -I. -pthread example.cpp
-    
-Programs with filenames ending in the `.cu` extension are compilable with the NVIDIA compiler, e.g.:
+  // allocate data in GPU memory
+  using vector = std::vector<float, cuda::managed_allocator<float>>;
 
-    $ nvcc -std=c++11 -I. example.cu
-    
-These programs are known to compile with `g++` v4.8, `clang` v3.5, `nvcc` v8.0, and `icc` 15.0.
+  size_t n = 1 << 20;
+  float a = 13;
+  vector x(n, 1);
+  vector y(n, 2);
+  vector z(n, 0);
+
+  vector reference(n, 13 * 1 + 2);
+
+  float* x_ptr = x.data();
+  float* y_ptr = y.data();
+  float* z_ptr = z.data();
+
+
+  // execute sequentially in the current thread
+  bulk_invoke(seq(n), [=](sequenced_agent& self)
+  {
+    int i = self.index();
+    z_ptr[i] = a * x_ptr[i] + y_ptr[i];
+  });
+
+  assert(z == reference);
+  std::fill(z.begin(), z.end(), 0);
+
+
+  // execute in parallel on the CPU
+  bulk_invoke(par(n), [=](parallel_agent& self)
+  {
+    int i = self.index();
+    z_ptr[i] = a * x_ptr[i] + y_ptr[i];
+  });
+
+  assert(z == reference);
+  std::fill(z.begin(), z.end(), 0);
+
+
+  // execute in parallel on a GPU
+  cuda::grid_executor gpu;
+  bulk_invoke(par(n).on(gpu), [=] __device__ (parallel_agent& self)
+  {
+    int i = self.index();
+    z_ptr[i] = a * x_ptr[i] + y_ptr[i];
+  });
+
+  assert(z == reference);
+  std::fill(z.begin(), z.end(), 0);
+  
+
+  // execute in parallel on all GPUs in the system
+  cuda::multidevice_executor all_gpus;
+  bulk_invoke(par(n).on(all_gpus), [=] __device__ (parallel_agent& self)
+  {
+    int i = self.index();
+    z_ptr[i] = a * x_ptr[i] + y_ptr[i];
+  });
+
+  assert(z == reference);
+  std::fill(z.begin(), z.end(), 0);
+
+
+  std::cout << "OK" << std::endl;
+  return 0;
+}
+~~~~
+
+
+# Discover the Library
+
+* Refer to Agency's [Quick Start Guide](http://github.com/agency-library/agency/wiki/Quick-Start-Guide) for further information and examples.
+* See Agency in action in the [collection of example programs](http://github.com/agency-library/agency/tree/master/examples).
+* Browse Agency's [online API documentation](http://agency-library.github.io/modules.html).
+
+Agency is an [NVIDIA Research](http://research.nvidia.com) project.
+

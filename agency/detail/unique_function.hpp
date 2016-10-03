@@ -2,7 +2,6 @@
 
 #include <agency/detail/config.hpp>
 #include <agency/detail/memory/unique_ptr.hpp>
-#include <agency/cuda/memory/allocator.hpp>
 #include <stdexcept>
 #include <cassert>
 #include <utility>
@@ -150,6 +149,11 @@ class unique_function<Result(Args...)>
 
       mutable Function f_;
 
+      __agency_exec_check_disable__
+      __AGENCY_ANNOTATION
+      ~callable() = default;
+
+      __agency_exec_check_disable__
       template<class OtherFunction,
                class = typename std::enable_if<
                  std::is_constructible<Function,OtherFunction&&>::value
@@ -160,12 +164,14 @@ class unique_function<Result(Args...)>
           f_(std::forward<OtherFunction>(f))
       {}
 
+      __agency_exec_check_disable__
       __AGENCY_ANNOTATION
       virtual Result operator()(Args... args) const
       {
         return f_(args...);
       }
 
+      __agency_exec_check_disable__
       __AGENCY_ANNOTATION
       static void deallocate(callable_self_deallocator_base* ptr)
       {
@@ -226,25 +232,15 @@ class unique_function<Result(Args...)>
         ::new(ptr) U(std::forward<OtherArgs>(args)...);
       }
 
-      __AGENCY_ANNOTATION
       value_type* allocate(size_t n)
       {
-#ifdef __CUDA_ARCH__
-        agency::cuda::detail::allocator<T> alloc;
-#else
         std::allocator<T> alloc;
-#endif
         return alloc.allocate(n);
       }
 
-      __AGENCY_ANNOTATION
       void deallocate(value_type* ptr, std::size_t n)
       {
-#ifdef __CUDA_ARCH__
-        agency::cuda::detail::allocator<value_type> alloc;
-#else
         std::allocator<value_type> alloc;
-#endif
         alloc.deallocate(ptr, n);
       }
     };
