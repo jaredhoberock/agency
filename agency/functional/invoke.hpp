@@ -5,7 +5,7 @@
 #include <agency/detail/control_structures/bind.hpp>
 #include <agency/execution/executor/executor_traits.hpp>
 #include <agency/execution/executor/customization_points/sync_execute.hpp>
-#include <agency/detail/multi_function.hpp>
+#include <agency/functional/detail/multi_function.hpp>
 #include <agency/detail/static_const.hpp>
 #include <agency/detail/type_traits.hpp>
 #include <utility>
