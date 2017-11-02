@@ -13,7 +13,9 @@ TODO
 
 ### Control Structures
 
-TODO
+  * `agency::invoke` is now a customization point
+  * `agency::default_invoke`
+  * TODO
 
 ### Containers
 
