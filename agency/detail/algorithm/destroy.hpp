@@ -4,7 +4,7 @@
 #include <agency/detail/requires.hpp>
 #include <agency/memory/allocator/detail/allocator_traits.hpp>
 #include <agency/memory/allocator/detail/allocator_traits/is_allocator.hpp>
-#include <agency/bulk_invoke.hpp>
+#include <agency/functional/bulk_invoke.hpp>
 #include <agency/execution/execution_policy/detail/simple_sequenced_policy.hpp>
 #include <agency/detail/type_traits.hpp>
 #include <agency/detail/iterator/iterator_traits.hpp>

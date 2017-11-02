@@ -7,7 +7,9 @@ TODO
 
 ### Breaking Changes
 
-TODO
+  * `<agency/invoke.hpp>` has been moved to `<agency/functional/invoke.hpp>`
+  * `<agency/bulk_invoke.hpp>` has been moved to `<agency/functional/bulk_invoke.hpp>`
+  * TODO
 
 ## New Features
 
