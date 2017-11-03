@@ -31,7 +31,7 @@ struct call_member_function_bulk_invoke
   constexpr auto operator()(BulkInvoke&&, Arg1&& arg1, Args&&... args) const ->
     decltype(std::forward<Arg1>(arg1).bulk_invoke(std::forward<Args>(args)...))
   {
-    return std::forward<Arg1>(arg1).for_each(std::forward<Args>(args)...);
+    return std::forward<Arg1>(arg1).bulk_invoke(std::forward<Args>(args)...);
   }
 };
 
