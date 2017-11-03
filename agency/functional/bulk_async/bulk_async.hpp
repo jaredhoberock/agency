@@ -26,9 +26,9 @@ namespace detail
 struct call_member_function_bulk_async
 {
   __agency_exec_check_disable__
-  template<class BulkInvoke, class Arg1, class... Args>
+  template<class BulkAsync, class Arg1, class... Args>
   __AGENCY_ANNOTATION
-  constexpr auto operator()(BulkInvoke&&, Arg1&& arg1, Args&&... args) const ->
+  constexpr auto operator()(BulkAsync&&, Arg1&& arg1, Args&&... args) const ->
     decltype(std::forward<Arg1>(arg1).bulk_async(std::forward<Args>(args)...))
   {
     return std::forward<Arg1>(arg1).bulk_async(std::forward<Args>(args)...);
