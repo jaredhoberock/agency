@@ -15,7 +15,6 @@
 
 #include <agency/detail/config.hpp>
 #include <agency/async.hpp>
-#include <agency/bulk_then.hpp>
 #include <agency/container.hpp>
 #include <agency/coordinate.hpp>
 #include <agency/exception_list.hpp>
