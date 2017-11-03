@@ -8,4 +8,3 @@
 #include <agency/functional/bulk_async/bulk_async.hpp>
 #include <agency/functional/bulk_async/default_bulk_async.hpp>
 
-
