@@ -105,7 +105,12 @@ namespace
 {
 
 
+#ifndef __CUDA_ARCH__
 constexpr auto const& invoke = detail::static_const<agency::detail::invoke_t>::value;
+#else
+// __device__ functions cannot access global variables, so make invoke a __device__ variable in __device__ code
+const __device__ detail::invoke_t invoke;
+#endif
 
 
 } // end anonymous namespace

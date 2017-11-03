@@ -5,11 +5,11 @@
 #pragma once
 
 #include <agency/detail/config.hpp>
-#include <agency/detail/control_structures/bulk_async_execution_policy.hpp>
-#include <agency/detail/type_traits.hpp>
-#include <agency/detail/integer_sequence.hpp>
-#include <agency/detail/control_structures/is_bulk_call_possible_via_execution_policy.hpp>
-#include <agency/execution/execution_agent.hpp>
+#include <agency/functional/bulk_async/default_bulk_async.hpp>
+#include <agency/functional/invoke.hpp>
+#include <agency/functional/detail/customization_point.hpp>
+#include <agency/detail/static_const.hpp>
+
 
 namespace agency
 {
@@ -17,30 +17,72 @@ namespace detail
 {
 
 
-template<bool enable, class ExecutionPolicy, class Function, class... Args>
-struct enable_if_bulk_async_execution_policy_impl {};
+// agency::bulk_async is a *customization point object* which allows its users to provide a custom implementation
+// which conforms to bulk_async's semantics.
+// these functors define the possible implementations of the bulk_async customization point
+// the first parameter passed to each of these functors is the bulk_async customization point itself
 
-template<class ExecutionPolicy, class Function, class... Args>
-struct enable_if_bulk_async_execution_policy_impl<true, ExecutionPolicy, Function, Args...>
+
+struct call_member_function_bulk_async
 {
-  using type = bulk_async_execution_policy_result_t<ExecutionPolicy,Function,Args...>;
+  __agency_exec_check_disable__
+  template<class BulkInvoke, class Arg1, class... Args>
+  __AGENCY_ANNOTATION
+  constexpr auto operator()(BulkInvoke&&, Arg1&& arg1, Args&&... args) const ->
+    decltype(std::forward<Arg1>(arg1).bulk_async(std::forward<Args>(args)...))
+  {
+    return std::forward<Arg1>(arg1).bulk_async(std::forward<Args>(args)...);
+  }
 };
 
-template<class ExecutionPolicy, class Function, class... Args>
-struct enable_if_bulk_async_execution_policy
-  : enable_if_bulk_async_execution_policy_impl<
-      is_bulk_call_possible_via_execution_policy<decay_t<ExecutionPolicy>,Function,Args...>::value,
-      decay_t<ExecutionPolicy>,
-      Function,
-      Args...
-    >
+
+struct call_free_function_bulk_async_or_invoke_customization_point
+{
+  __agency_exec_check_disable__
+  template<class BulkAsync, class... Args>
+  __AGENCY_ANNOTATION
+  constexpr auto operator()(BulkAsync&&, Args&&... args) const ->
+    decltype(bulk_async(std::forward<Args>(args)...))
+  {
+    return bulk_async(std::forward<Args>(args)...);
+  }
+
+  template<class BulkAsync, class Arg1, class... Args>
+  __AGENCY_ANNOTATION
+  constexpr auto operator()(BulkAsync&& customization_point, Arg1&& arg1, Args&&... args) const ->
+    decltype(agency::invoke(std::forward<Arg1>(arg1), std::forward<BulkAsync>(customization_point), std::forward<Args>(args)...))
+  {
+    return agency::invoke(std::forward<Arg1>(arg1), std::forward<BulkAsync>(customization_point), std::forward<Args>(args)...);
+  }
+};
+
+
+struct call_default_bulk_async
+{
+  __agency_exec_check_disable__
+  template<class BulkAsync, class... Args>
+  __AGENCY_ANNOTATION
+  constexpr auto operator()(BulkAsync&&, Args&&... args) const ->
+    decltype(agency::default_bulk_async(std::forward<Args>(args)...))
+  {
+    return agency::default_bulk_async(std::forward<Args>(args)...);
+  }
+};
+
+
+struct bulk_async_t : customization_point<
+  bulk_async_t,
+  call_member_function_bulk_async,
+  call_free_function_bulk_async_or_invoke_customization_point,
+  call_default_bulk_async
+>
 {};
 
 
 } // end detail
 
 
-/// \brief Creates a bulk asynchronous invocation.
+/// \brief Creates a (customizable) bulk asynchronous invocation.
 /// \ingroup control_structures
 ///
 ///
@@ -59,6 +101,9 @@ struct enable_if_bulk_async_execution_policy
 ///
 /// If the invocations of `f` do not return `void`, these results are collected and returned in a container `results`, whose type is implementation-defined.
 /// If invocation i returns `result_i`, and this invocation's `agent_i` has index `idx_i`, then `results[idx_i]` yields `result_i`.
+///
+/// The difference between `bulk_async` and `default_bulk_async` is that unlike `default_bulk_async`, `bulk_async` is a customization point whose
+/// behavior can be customized with a fancy execution policy.
 ///
 /// \param policy An execution policy describing the requirements of the execution agents created by this call to `bulk_async`.
 /// \param f      A function defining the work to be performed by execution agents.
@@ -96,24 +141,27 @@ struct enable_if_bulk_async_execution_policy
 /// OK
 /// ~~~~
 ///
+/// \see bulk_async
 /// \see bulk_invoke
 /// \see bulk_then
+
+#ifdef DOXYGEN_ONLY
 template<class ExecutionPolicy, class Function, class... Args>
 __AGENCY_ANNOTATION
-#ifndef DOXYGEN_SHOULD_SKIP_THIS
-typename detail::enable_if_bulk_async_execution_policy<
-  ExecutionPolicy, Function, Args...
->::type
+see_below bulk_async(ExecutionPolicy&& policy, Function f, Args&&... args);
 #else
-see_below
-#endif
-  bulk_async(ExecutionPolicy&& policy, Function f, Args&&... args)
+namespace
 {
-  using agent_traits = execution_agent_traits<typename std::decay<ExecutionPolicy>::type::execution_agent_type>;
-  const size_t num_shared_params = detail::execution_depth<typename agent_traits::execution_category>::value;
 
-  return detail::bulk_async_execution_policy(detail::index_sequence_for<Args...>(), detail::make_index_sequence<num_shared_params>(), policy, f, std::forward<Args>(args)...);
-}
+#ifndef __CUDA_ARCH__
+constexpr auto const& bulk_async = detail::static_const<detail::bulk_async_t>::value;
+#else
+// __device__ functions cannot access global variables, so make bulk_async a __device__ variable in __device__ code
+const __device__ detail::bulk_async_t bulk_async;
+#endif
+
+} // end anonymous namespace
+#endif
 
 
 } // end agency

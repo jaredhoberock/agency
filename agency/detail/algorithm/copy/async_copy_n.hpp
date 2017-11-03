@@ -2,7 +2,7 @@
 
 #include <agency/detail/config.hpp>
 #include <agency/detail/requires.hpp>
-#include <agency/bulk_async.hpp>
+#include <agency/functional/bulk_async.hpp>
 #include <agency/async.hpp>
 #include <agency/execution/execution_policy.hpp>
 #include <agency/detail/type_traits.hpp>
