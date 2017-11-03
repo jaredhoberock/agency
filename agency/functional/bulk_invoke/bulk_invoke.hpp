@@ -5,11 +5,11 @@
 #pragma once
 
 #include <agency/detail/config.hpp>
-#include <agency/detail/control_structures/bulk_invoke_execution_policy.hpp>
-#include <agency/detail/type_traits.hpp>
-#include <agency/detail/integer_sequence.hpp>
-#include <agency/detail/control_structures/is_bulk_call_possible_via_execution_policy.hpp>
-#include <agency/execution/execution_agent.hpp>
+#include <agency/functional/bulk_invoke/default_bulk_invoke.hpp>
+#include <agency/functional/invoke.hpp>
+#include <agency/functional/detail/customization_point.hpp>
+#include <agency/detail/static_const.hpp>
+
 
 namespace agency
 {
@@ -17,56 +17,72 @@ namespace detail
 {
 
 
-template<bool enable, class ExecutionPolicy, class Function, class... Args>
-struct enable_if_bulk_invoke_execution_policy_impl {};
+// agency::bulk_invoke is a *customization point object* which allows its users to provide a custom implementation
+// which conforms to bulk_invoke's semantics.
+// these functors define the possible implementations of the bulk_invoke customization point
+// the first parameter passed to each of these functors is the bulk_invoke customization point itself
 
-template<class ExecutionPolicy, class Function, class... Args>
-struct enable_if_bulk_invoke_execution_policy_impl<true, ExecutionPolicy, Function, Args...>
+
+struct call_member_function_bulk_invoke
 {
-  using type = bulk_invoke_execution_policy_result_t<ExecutionPolicy,Function,Args...>;
+  __agency_exec_check_disable__
+  template<class BulkInvoke, class Arg1, class... Args>
+  __AGENCY_ANNOTATION
+  constexpr auto operator()(BulkInvoke&&, Arg1&& arg1, Args&&... args) const ->
+    decltype(std::forward<Arg1>(arg1).bulk_invoke(std::forward<Args>(args)...))
+  {
+    return std::forward<Arg1>(arg1).for_each(std::forward<Args>(args)...);
+  }
 };
 
 
-template<class ExecutionPolicy, class Function, class... Args>
-struct enable_if_bulk_invoke_execution_policy
-  : enable_if_bulk_invoke_execution_policy_impl<
-      is_bulk_call_possible_via_execution_policy<decay_t<ExecutionPolicy>,Function,Args...>::value,
-      decay_t<ExecutionPolicy>,
-      Function,
-      Args...
-    >
+struct call_free_function_bulk_invoke_or_invoke_customization_point
+{
+  __agency_exec_check_disable__
+  template<class BulkInvoke, class... Args>
+  __AGENCY_ANNOTATION
+  constexpr auto operator()(BulkInvoke&&, Args&&... args) const ->
+    decltype(bulk_invoke(std::forward<Args>(args)...))
+  {
+    return bulk_invoke(std::forward<Args>(args)...);
+  }
+
+  template<class BulkInvoke, class Arg1, class... Args>
+  __AGENCY_ANNOTATION
+  constexpr auto operator()(BulkInvoke&& customization_point, Arg1&& arg1, Args&&... args) const ->
+    decltype(agency::invoke(std::forward<Arg1>(arg1), std::forward<BulkInvoke>(customization_point), std::forward<Args>(args)...))
+  {
+    return agency::invoke(std::forward<Arg1>(arg1), std::forward<BulkInvoke>(customization_point), std::forward<Args>(args)...);
+  }
+};
+
+
+struct call_default_bulk_invoke
+{
+  __agency_exec_check_disable__
+  template<class BulkInvoke, class... Args>
+  __AGENCY_ANNOTATION
+  constexpr auto operator()(BulkInvoke&&, Args&&... args) const ->
+    decltype(agency::default_bulk_invoke(std::forward<Args>(args)...))
+  {
+    return agency::default_bulk_invoke(std::forward<Args>(args)...);
+  }
+};
+
+
+struct bulk_invoke_t : customization_point<
+  bulk_invoke_t,
+  call_member_function_bulk_invoke,
+  call_free_function_bulk_invoke_or_invoke_customization_point,
+  call_default_bulk_invoke
+>
 {};
 
 
 } // end detail
 
-///
-/// \defgroup control_structures Control Structures
-/// \brief Control structures create execution.
-///
-///
-/// The primary way Agency programs create execution is by invoking a
-/// **control structure**. Control structures are functions invoked via
-/// composition with an **execution policy**. Execution policies
-/// parameterize control structures by describing the properties of the
-/// requested execution.
-///
-/// For example, the following code snipped uses the bulk_invoke() control
-/// structure with the \ref par execution policy to require the parallel execution
-/// of ten invocations of a lambda function:
-///
-/// ~~~~{.cpp}
-/// using namespace agency;
-///
-/// bulk_invoke(par(10), [](parallel_agent& self)
-/// {
-///   // task body here
-///   ...
-/// });
-/// ~~~~
 
-
-/// \brief Creates a bulk synchronous invocation.
+/// \brief Creates a (customizable) bulk synchronous invocation.
 /// \ingroup control_structures
 ///
 ///
@@ -84,6 +100,9 @@ struct enable_if_bulk_invoke_execution_policy
 ///
 /// If the invocations of `f` do not return `void`, these results are collected and returned in a container `results`, whose type is implementation-defined.
 /// If invocation i returns `result_i`, and this invocation's `agent_i` has index `idx_i`, then `results[idx_i]` yields `result_i`.
+///
+/// The difference between `bulk_invoke` and `default_bulk_invoke` is that unlike `default_bulk_invoke`, `bulk_invoke` is a customization point whose
+/// behavior can be customized with a fancy execution policy.
 ///
 /// \param policy An execution policy describing the requirements of the execution agents created by this call to `bulk_invoke`.
 /// \param f      A function defining the work to be performed by execution agents.
@@ -128,24 +147,27 @@ struct enable_if_bulk_invoke_execution_policy
 ///     $ ./saxpy 
 ///     OK
 ///
+/// \see default_bulk_invoke
 /// \see bulk_async
 /// \see bulk_then
+
+#ifdef DOXYGEN_ONLY
 template<class ExecutionPolicy, class Function, class... Args>
 __AGENCY_ANNOTATION
-#ifndef DOXYGEN_SHOULD_SKIP_THIS
-typename detail::enable_if_bulk_invoke_execution_policy<
-  ExecutionPolicy, Function, Args...
->::type
+see_below bulk_invoke(ExecutionPolicy&& policy, Function f, Args&&... args);
 #else
-see_below
-#endif
-  bulk_invoke(ExecutionPolicy&& policy, Function f, Args&&... args)
+namespace
 {
-  using agent_traits = execution_agent_traits<typename std::decay<ExecutionPolicy>::type::execution_agent_type>;
-  const size_t num_shared_params = detail::execution_depth<typename agent_traits::execution_category>::value;
 
-  return detail::bulk_invoke_execution_policy(detail::index_sequence_for<Args...>(), detail::make_index_sequence<num_shared_params>(), policy, f, std::forward<Args>(args)...);
-}
+#ifndef __CUDA_ARCH__
+constexpr auto const& bulk_invoke = detail::static_const<detail::bulk_invoke_t>::value;
+#else
+// __device__ functions cannot access global variables, so make bulk_invoke a __device__ variable in __device__ code
+const __device__ detail::bulk_invoke_t bulk_invoke;
+#endif
+
+} // end anonymous namespace
+#endif
 
 
 } // end agency
