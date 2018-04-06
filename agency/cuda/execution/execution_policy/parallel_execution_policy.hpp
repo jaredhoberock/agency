@@ -68,41 +68,6 @@ cuda::parallel_execution_policy replace_executor(const ParallelPolicy& policy, c
 }
 
 
-// this overload is called on e.g. par.on(device(0))
-// XXX this function needs to account for the dimensionality of ParallelPolicy's agents
-template<class ParallelPolicy,
-         __AGENCY_REQUIRES(
-           agency::detail::policy_is_parallel<ParallelPolicy>::value
-         )>
-__AGENCY_ANNOTATION
-cuda::parallel_execution_policy replace_executor(const ParallelPolicy& policy, device_id device)
-{
-  // create a grid_executor from the device_id
-  cuda::grid_executor grid_exec(device);
-
-  // call a lower-level version of replace_executor()
-  return cuda::replace_executor(policy, grid_exec);
-}
-
-
-// this overload is called on e.g. par.on(all_devices())
-// XXX this function needs to account for the dimensionality of ParallelPolicy's agents
-template<class ParallelPolicy,
-         class Range,
-         __AGENCY_REQUIRES(
-           detail::is_range_of_device_id<Range>::value and
-           agency::detail::policy_is_parallel<ParallelPolicy>::value
-         )>
-basic_execution_policy<parallel_agent, multidevice_executor> replace_executor(const ParallelPolicy& policy, const Range& devices)
-{
-  // turn the range of device_id into a vector of grid_executors
-  auto grid_executors = agency::cuda::detail::devices_to_grid_executors(devices);
-  multidevice_executor exec(grid_executors);
-
-  return policy.on(exec);
-}
-
-
 } // end cuda
 } // end agency
 
