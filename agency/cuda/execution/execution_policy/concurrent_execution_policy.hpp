@@ -49,23 +49,6 @@ cuda::concurrent_execution_policy replace_executor(const ConcurrentPolicy& polic
 }
 
 
-// this overload is called on e.g. con.on(device(0))
-// XXX this function needs to account for the dimensionality of ConcurrentPolicy's agents
-template<class ConcurrentPolicy,
-         __AGENCY_REQUIRES(
-           agency::detail::policy_is_concurrent<ConcurrentPolicy>::value
-         )>
-__AGENCY_ANNOTATION
-cuda::concurrent_execution_policy replace_executor(const ConcurrentPolicy& policy, device_id device)
-{
-  // create a concurrent_executor from the device_id
-  cuda::concurrent_executor exec(device);
-
-  // call a lower-level version of replace_executor()
-  return cuda::replace_executor(policy, exec);
-}
-
-
 } // end cuda
 } // end agency
 
