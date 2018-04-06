@@ -1,5 +1,5 @@
 /// \file
-/// \brief Contains definition of replace_executor.
+/// \brief Contains definition of associated_executor.
 ///
 
 // Copyright (c) 2018, NVIDIA CORPORATION. All rights reserved.
