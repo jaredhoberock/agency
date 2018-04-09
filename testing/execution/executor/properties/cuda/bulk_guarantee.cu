@@ -50,6 +50,8 @@ int main()
 
   {
     // sequenced -> sequenced
+    static_assert(agency::can_require<sequenced_executor, bulk_guarantee_t::sequenced_t>::value, "Sequenced is not requirable.");
+
     auto ex = agency::require(sequenced_executor(), bulk_guarantee_t::sequenced_t());
 
     static_assert(query(ex, bulk_guarantee) == bulk_guarantee_t::sequenced_t(), "Sequenced is not guaranteed.");
@@ -58,6 +60,7 @@ int main()
 
   {
     // sequenced -> parallel
+    static_assert(agency::can_require<sequenced_executor, bulk_guarantee_t::parallel_t>::value, "Parallel is not requirable.");
 
     auto ex = agency::require(sequenced_executor(), bulk_guarantee_t::parallel_t());
 
@@ -66,6 +69,7 @@ int main()
 
   {
     // sequenced -> unsequenced
+    static_assert(agency::can_require<sequenced_executor, bulk_guarantee_t::unsequenced_t>::value, "Unsequenced is not requirable.");
 
     auto ex = agency::require(sequenced_executor(), bulk_guarantee_t::unsequenced_t());
 
@@ -75,6 +79,8 @@ int main()
 
   {
     // concurrent -> concurrent
+    static_assert(agency::can_require<concurrent_executor, bulk_guarantee_t::concurrent_t>::value, "Concurrent is not requirable.");
+
     auto ex = agency::require(concurrent_executor(), bulk_guarantee_t::concurrent_t());
 
     static_assert(query(ex, bulk_guarantee) == bulk_guarantee_t::concurrent_t(), "Concurrent is not guaranteed.");
@@ -84,6 +90,8 @@ int main()
 
   {
     // concurrent -> parallel
+    static_assert(agency::can_require<concurrent_executor, bulk_guarantee_t::parallel_t>::value, "Parallel is not requirable.");
+
     auto ex = agency::require(concurrent_executor(), bulk_guarantee_t::parallel_t());
 
     static_assert(query(ex, bulk_guarantee) == bulk_guarantee_t::parallel_t(), "Parallel is not guaranteed.");
@@ -92,6 +100,8 @@ int main()
 
   {
     // concurrent -> unsequenced
+    static_assert(agency::can_require<concurrent_executor, bulk_guarantee_t::parallel_t>::value, "Unsequenced is not requirable.");
+
     auto ex = agency::require(concurrent_executor(), bulk_guarantee_t::unsequenced_t());
 
     static_assert(query(ex, bulk_guarantee) == bulk_guarantee_t::unsequenced_t(), "Unsequenced is not guaranteed.");
@@ -100,6 +110,7 @@ int main()
     
   {
     // parallel -> parallel
+    static_assert(agency::can_require<parallel_executor, bulk_guarantee_t::parallel_t>::value, "Parallel is not requirable.");
 
     auto ex = agency::require(parallel_executor(), bulk_guarantee_t::parallel_t());
 
@@ -109,6 +120,7 @@ int main()
 
   {
     // parallel -> unsequenced
+    static_assert(agency::can_require<parallel_executor, bulk_guarantee_t::unsequenced_t>::value, "Unsequenced is not requirable.");
 
     auto ex = agency::require(parallel_executor(), bulk_guarantee_t::unsequenced_t());
 
@@ -118,6 +130,8 @@ int main()
 
   {
     // unsequenced -> unsequenced
+    static_assert(agency::can_require<unsequenced_executor, bulk_guarantee_t::unsequenced_t>::value, "Unsequenced is not requirable.");
+
     auto ex = agency::require(unsequenced_executor(), bulk_guarantee_t::unsequenced_t());
 
     static_assert(query(ex, bulk_guarantee) == bulk_guarantee_t::unsequenced_t(), "Unsequenced is not guaranteed.");

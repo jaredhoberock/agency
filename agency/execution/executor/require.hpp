@@ -222,5 +222,31 @@ auto require(Executor&& ex, Property&& prop, Properties&&... props) ->
 #endif // __GNUC__
 
 
+namespace detail
+{
+
+
+template<class Executor, class... Properties>
+struct can_require_impl
+{
+  template<class E = Executor,
+           class = decltype(agency::require(std::declval<const E>(), std::declval<Properties>()...))
+          >
+  static std::true_type test(int);
+
+  template<class>
+  static std::false_type test(...);
+
+  using type = decltype(test<Executor>(0));
+};
+
+
+} // end detail
+
+
+template<class Executor, class... Properties>
+using can_require = typename detail::can_require_impl<Executor,Properties...>::type;
+
+
 } // end agency
 
