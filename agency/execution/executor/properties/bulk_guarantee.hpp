@@ -279,15 +279,24 @@ struct bulk_guarantee_t
   class scoped_t
   {
     public:
+      // OuterGuarantee and InnerGuarantee should be one of bulk_guarantee_t -- they must be
+      // one of the nested property types (to make static_query() work below)
+      static_assert(!std::is_same<bulk_guarantee_t, OuterGuarantee>::value, "OuterGuarantee must not be bulk_guarantee_t.");
+      static_assert(!std::is_same<bulk_guarantee_t, InnerGuarantee>::value, "InnerGuarantee must not be bulk_guarantee_t.");
+
       static constexpr bool is_requirable = true;
       static constexpr bool is_preferable = true;
   
       template<class Executor>
       __AGENCY_ANNOTATION
       static constexpr auto static_query() ->
-        decltype(detail::static_query<Executor, scoped_t>())
+        decltype(detail::static_query<Executor, bulk_guarantee_t>())
       {
-        return detail::static_query<Executor, scoped_t>();
+        // XXX note that we use bulk_guarantee_t, rather than scoped_t, as the property type
+        //     because scoped_t is not currently convertible to bulk_guarantee_t,
+        //     and executors should implement their .query() members in terms of bulk_guarantee_t,
+        //     rather than the more specific scoped_t type
+        return detail::static_query<Executor, bulk_guarantee_t>();
       }
 
       scoped_t() = default;
@@ -295,51 +304,44 @@ struct bulk_guarantee_t
       scoped_t(const scoped_t&) = default;
   
       __AGENCY_ANNOTATION
-      constexpr scoped_t(const OuterGuarantee& outer, const InnerGuarantee& inner)
-        : outer_{outer}, inner_{inner}
-      {}
-  
-      __AGENCY_ANNOTATION
-      constexpr OuterGuarantee outer() const
+      static constexpr OuterGuarantee outer()
       {
-        return outer_;
+        return OuterGuarantee{};
       }
   
       __AGENCY_ANNOTATION
-      constexpr InnerGuarantee inner() const
+      static constexpr InnerGuarantee inner()
       {
-        return inner_;
+        return InnerGuarantee{};
       }
   
       __AGENCY_ANNOTATION
-      constexpr scoped_t value() const
+      static constexpr scoped_t value()
       {
-        return *this;
+        return scoped_t<OuterGuarantee,InnerGuarantee>();
       }
   
+      // XXX make this a member to WAR nvbug 2100054
       __AGENCY_ANNOTATION
-      friend constexpr bool operator==(const scoped_t& a, const scoped_t& b)
+      constexpr bool operator==(const scoped_t&) const
       {
-        return (a.outer().value() == b.outer().value()) && (a.inner().value() == b.inner().value());
+        return true;
       }
   
+      // XXX make this a member to WAR nvbug 2100054
       __AGENCY_ANNOTATION
-      friend constexpr bool operator!=(const scoped_t& a, const scoped_t& b)
+      constexpr bool operator!=(const scoped_t& a) const
       {
-        return !(a == b);
+        return false;
       }
-
-    private:
-      OuterGuarantee outer_;
-      InnerGuarantee inner_;
   }; // end scoped_t
 
   template<class OuterGuarantee, class InnerGuarantee>
   __AGENCY_ANNOTATION
   constexpr static scoped_t<OuterGuarantee, InnerGuarantee>
-    scoped(const OuterGuarantee& outer, const InnerGuarantee& inner)
+    scoped(const OuterGuarantee&, const InnerGuarantee&)
   {
-    return {outer, inner};
+    return scoped_t<OuterGuarantee,InnerGuarantee>{};
   }
 
   private:
