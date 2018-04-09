@@ -3,6 +3,7 @@
 #include <agency/detail/config.hpp>
 #include <agency/cuda/execution/executor/detail/basic_grid_executor.hpp>
 #include <agency/execution/executor/properties/bulk_guarantee.hpp>
+#include <agency/execution/executor/flattened_executor.hpp>
 #include <agency/coordinate/point.hpp>
 
 
@@ -35,6 +36,12 @@ class grid_executor : public detail::basic_grid_executor<bulk_guarantee_t::paral
     {
       // XXX it's not clear that this is correct
       return shape_type{detail::maximum_grid_size_x(device()), 256};
+    }
+
+    __AGENCY_ANNOTATION
+    flattened_executor<grid_executor> require(bulk_guarantee_t::parallel_t) const
+    {
+      return flattened_executor<grid_executor>(*this);
     }
 };
 

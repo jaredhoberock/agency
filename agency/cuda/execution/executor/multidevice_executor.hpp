@@ -78,7 +78,7 @@ static_assert(is_executor<spanning_grid_executor>::value, "spanning_grid_executo
 
 
 // this function returns a spanning_grid_executor associated with a range of device_id
-// XXX we might prefer to return a supergrid_executor and allow replace_executor() to flatten that as necessary
+// XXX we might prefer to return a supergrid_executor and flatten that as necessary
 template<class Range,
          __AGENCY_REQUIRES(
            detail::is_range_of_device_id<Range>::value

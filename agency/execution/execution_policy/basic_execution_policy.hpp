@@ -8,7 +8,6 @@
 #include <agency/tuple.hpp>
 #include <agency/execution/execution_agent.hpp>
 #include <agency/execution/execution_policy/execution_policy_traits.hpp>
-#include <agency/execution/execution_policy/replace_executor.hpp>
 #include <agency/execution/executor/associated_executor.hpp>
 #include <agency/execution/executor/executor_traits.hpp>
 #include <agency/execution/executor/scoped_executor.hpp>
@@ -95,10 +94,13 @@ template<class ExecutionAgent,
          class DerivedExecutionPolicy = void>
 class basic_execution_policy
 {
+  private:
+    using execution_requirement = typename execution_agent_traits<ExecutionAgent>::execution_requirement;
+
   public:
     // validate that it makes sense to execute the agent's requirements using the executor's guarantees
     static_assert(detail::is_weaker_guarantee_than<
-                    typename execution_agent_traits<ExecutionAgent>::execution_requirement,
+                    execution_requirement,
                     decltype(bulk_guarantee_t::static_query<Executor>())
                   >::value,
                   "basic_execution_policy: ExecutionAgent's forward progress requirements cannot be satisfied by Executor's guarantees."
@@ -160,32 +162,6 @@ class basic_execution_policy
     }
     
     
-    /// \brief Returns a copy of this execution policy's executor with the copy's executor replaced with another.
-    __agency_exec_check_disable__
-    template<class ReplacementExecutor,
-             __AGENCY_REQUIRES(
-               is_executor<ReplacementExecutor>::value
-             )>
-    __AGENCY_ANNOTATION
-    friend basic_execution_policy<
-      ExecutionAgent,
-      ReplacementExecutor
-    >
-      replace_executor(const basic_execution_policy& policy, const ReplacementExecutor& ex)
-    {
-      using policy_requirement = typename execution_agent_traits<ExecutionAgent>::execution_requirement;
-      using executor_guarantee = decltype(bulk_guarantee_t::static_query<ReplacementExecutor>());
-    
-      static_assert(detail::is_weaker_guarantee_than<policy_requirement, executor_guarantee>::value, "agency::replace_executor(): Execution policy's forward progress requirements cannot be satisfied by executor's guarantees.");
-    
-      using result_type = basic_execution_policy<
-        ExecutionAgent,
-        ReplacementExecutor
-      >;
-    
-      return result_type(policy.param(), ex);
-    }
-
     /// \brief Replaces this execution policy's executor with another.
     ///
     ///
@@ -225,17 +201,22 @@ class basic_execution_policy
     ///           * `Policy::executor_type` is `OtherExecutor`.
     /// \note The given executor's forward progress guarantees must not be weaker than this
     ///       execution policy's forward progress requirements.
-    /// \note on() is sugar for the expression `agency::replace_executor(static_cast<const DerivedType>(*this), exec)`.
-    /// \see replace_executor
     __agency_exec_check_disable__
     template<class OtherExecutor,
-             __AGENCY_REQUIRES(is_executor<OtherExecutor>::value)
-            >
+             __AGENCY_REQUIRES(is_executor<OtherExecutor>::value),
+             __AGENCY_REQUIRES(
+               // XXX this is possibly too restrictive -- if it's possible to get a stronger guarantee from exec, then we'd accept that
+               can_require<
+                 OtherExecutor,
+                 execution_requirement
+               >::value
+             )>
     __AGENCY_ANNOTATION
-    auto on(const OtherExecutor& exec) const ->
-      decltype(agency::replace_executor(this->derived(), exec))
+    basic_execution_policy<execution_agent_type, detail::require_result_t<OtherExecutor, execution_requirement>>
+      on(const OtherExecutor& exec) const
     {
-      return agency::replace_executor(derived(), exec);
+      auto adapted_ex = agency::require(exec, execution_requirement());
+      return basic_execution_policy<execution_agent_type,decltype(adapted_ex)>(param(), adapted_ex);
     }
 
     // XXX probably want to require that agency::associated_executor() is well-formed

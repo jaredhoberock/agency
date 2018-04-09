@@ -36,19 +36,6 @@ class concurrent_execution_policy_2d : public basic_execution_policy<concurrent_
 const concurrent_execution_policy_2d con2d{};
 
 
-// this overload is called on e.g. con.on(cuda::concurrent_executor)
-// XXX this function needs to account for the dimensionality of ConcurrentPolicy's agents
-template<class ConcurrentPolicy,
-         __AGENCY_REQUIRES(
-           agency::detail::policy_is_concurrent<ConcurrentPolicy>::value
-         )>
-__AGENCY_ANNOTATION
-cuda::concurrent_execution_policy replace_executor(const ConcurrentPolicy& policy, const concurrent_executor& exec)
-{
-  return cuda::concurrent_execution_policy(policy.param(), exec);
-}
-
-
 } // end cuda
 } // end agency
 
