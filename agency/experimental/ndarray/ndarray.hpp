@@ -25,10 +25,10 @@ namespace experimental
 
 
 template<class T, class Shape = size_t, class Alloc = agency::allocator<T>, class Index = Shape>
-class basic_ndarray
+class basic_ndarray : private agency::detail::storage<T,Alloc,Shape,Index>
 {
   private:
-    using storage_type = agency::detail::storage<T,Alloc,Shape>;
+    using super_t = agency::detail::storage<T,Alloc,Shape,Index>;
 
   public:
     using value_type = T;
@@ -37,7 +37,7 @@ class basic_ndarray
     using pointer = typename std::allocator_traits<allocator_type>::pointer;
     using const_pointer = typename std::allocator_traits<allocator_type>::const_pointer;
 
-    using shape_type = typename storage_type::shape_type;
+    using shape_type = typename super_t::shape_type;
     using index_type = Index;
 
     using iterator = pointer;
@@ -55,7 +55,7 @@ class basic_ndarray
     template<class... Args, __AGENCY_REQUIRES(std::is_constructible<T, const Args&...>::value)>
     __AGENCY_ANNOTATION
     basic_ndarray(const shape_type& shape, const allocator_type& alloc, const Args&... constructor_args)
-      : storage_(shape, alloc)
+      : super_t(shape, alloc)
     {
       construct_elements_from_arrays(constant_ndarray<Args,Shape>(shape, constructor_args)...);
     }
@@ -71,7 +71,7 @@ class basic_ndarray
     __agency_exec_check_disable__
     __AGENCY_ANNOTATION
     explicit basic_ndarray(const shape_type& shape, const allocator_type& alloc = allocator_type())
-      : storage_(shape, alloc)
+      : super_t(shape, alloc)
     {
       construct_elements_from_arrays();
     }
@@ -86,12 +86,12 @@ class basic_ndarray
     template<class ArrayView,
              __AGENCY_REQUIRES(
                std::is_constructible<
-                 storage_type, decltype(std::declval<ArrayView>().shape()), allocator_type
+                 super_t, decltype(std::declval<ArrayView>().shape()), allocator_type
                >::value
              )>
     __AGENCY_ANNOTATION
     explicit basic_ndarray(const ArrayView& array, const allocator_type& alloc = allocator_type())
-      : storage_(array.shape(), alloc)
+      : super_t(array.shape(), alloc)
     {
       construct_elements_from_arrays(array);
     }
@@ -106,7 +106,7 @@ class basic_ndarray
                std::is_convertible<typename std::iterator_traits<Iterator>::value_type, value_type>::value
              )>
     basic_ndarray(ExecutionPolicy&& policy, Iterator first, shape_type shape, const allocator_type& alloc = allocator_type())
-      : storage_(shape, alloc)
+      : super_t(shape, alloc)
     {
       construct_elements(std::forward<ExecutionPolicy>(policy), first);
     }
@@ -138,7 +138,7 @@ class basic_ndarray
              )>
     __AGENCY_ANNOTATION
     basic_ndarray(ExecutionPolicy&& policy, const basic_ndarray& other)
-      : storage_(other.shape(), other.get_allocator())
+      : super_t(other.shape(), other.get_allocator())
     {
       construct_elements_from_arrays(std::forward<ExecutionPolicy>(policy), other.all());
     }
@@ -152,7 +152,7 @@ class basic_ndarray
     __agency_exec_check_disable__
     __AGENCY_ANNOTATION
     basic_ndarray(basic_ndarray&& other)
-      : storage_{}
+      : super_t{}
     {
       swap(other);
     }
@@ -183,7 +183,7 @@ class basic_ndarray
     __AGENCY_ANNOTATION
     void swap(basic_ndarray& other)
     {
-      storage_.swap(other.storage_);
+      super_t::swap(other);
     }
 
 
@@ -191,7 +191,7 @@ class basic_ndarray
     __AGENCY_ANNOTATION
     allocator_type get_allocator() const
     {
-      return storage_.allocator();
+      return super_t::allocator();
     }
 
     __AGENCY_ANNOTATION
@@ -209,37 +209,37 @@ class basic_ndarray
     __AGENCY_ANNOTATION
     shape_type shape() const
     {
-      return storage_.shape();
+      return super_t::shape();
     }
 
     __AGENCY_ANNOTATION
     std::size_t size() const
     {
-      return storage_.size();
+      return super_t::size();
     }
 
     __AGENCY_ANNOTATION
     pointer data()
     {
-      return storage_.data();
+      return super_t::data();
     }
 
     __AGENCY_ANNOTATION
     const_pointer data() const
     {
-      return storage_.data();
+      return super_t::data();
     }
 
     __AGENCY_ANNOTATION
     basic_ndarray_ref<const T,shape_type,index_type,const_pointer> all() const
     {
-      return basic_ndarray_ref<const T,shape_type,index_type,const_pointer>(data(), shape());
+      return super_t::all();
     }
 
     __AGENCY_ANNOTATION
     basic_ndarray_ref<T,shape_type,index_type,pointer> all()
     {
-      return basic_ndarray_ref<T,shape_type,index_type,pointer>(data(), shape());
+      return super_t::all();
     }
 
     __AGENCY_ANNOTATION
@@ -282,10 +282,10 @@ class basic_ndarray
     __AGENCY_ANNOTATION
     void clear()
     {
-      agency::detail::destroy_array(storage_.allocator(), all());
+      agency::detail::destroy_array(super_t::allocator(), all());
 
-      // reset the storage to empty
-      storage_ = storage_type(std::move(storage_.allocator()));
+      // empty the super class
+      static_cast<super_t&>(*this) = super_t(std::move(super_t::allocator()));
     }
 
     __agency_exec_check_disable__
@@ -319,7 +319,7 @@ class basic_ndarray
     __AGENCY_ANNOTATION
     void construct_elements(ExecutionPolicy&& policy, Iterators... iters)
     {
-      agency::detail::construct_n(std::forward<ExecutionPolicy>(policy), storage_.allocator(), begin(), size(), iters...);
+      agency::detail::construct_n(std::forward<ExecutionPolicy>(policy), super_t::allocator(), begin(), size(), iters...);
     }
 
     template<class... Iterators>
@@ -338,17 +338,15 @@ class basic_ndarray
     __AGENCY_ANNOTATION
     void construct_elements_from_arrays(ExecutionPolicy&& policy, const ArrayViews&... arrays)
     {
-      agency::detail::construct_array(storage_.allocator(), std::forward<ExecutionPolicy>(policy), all(), arrays...);
+      agency::detail::construct_array(super_t::allocator(), std::forward<ExecutionPolicy>(policy), all(), arrays...);
     }
 
     template<class... ArrayViews>
     __AGENCY_ANNOTATION
     void construct_elements_from_arrays(const ArrayViews&... arrays)
     {
-      agency::detail::construct_array(storage_.allocator(), all(), arrays...);
+      agency::detail::construct_array(super_t::allocator(), all(), arrays...);
     }
-
-    storage_type storage_;
 };
 
 
