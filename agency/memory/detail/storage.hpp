@@ -3,7 +3,8 @@
 #include <agency/detail/config.hpp>
 #include <agency/memory/allocator.hpp>
 #include <agency/memory/allocator/detail/allocator_traits.hpp>
-#include <agency/detail/shape_cast.hpp>
+#include <agency/experimental/ndarray/ndarray_ref.hpp>
+
 
 namespace agency
 {
@@ -14,75 +15,94 @@ namespace detail
 // storage takes an optional Shape parameter instead of assuming size_t
 // so that multidimensional containers need not store their shape in
 // addition to what is maintained by storage
-template<class T, class Allocator, class Shape = std::size_t>
-class storage
+//
+// storage inherits from basic_ndarray_ref to enable zero-cost, nested std::span-like types from containers
+template<class T, class Allocator, class Shape = std::size_t, class Index = Shape>
+class storage : private agency::experimental::basic_ndarray_ref<T, Shape, Index, typename std::allocator_traits<Allocator>::pointer>
 {
   public:
-    using value_type = typename std::allocator_traits<Allocator>::value_type;
-    using pointer = typename std::allocator_traits<Allocator>::pointer;
-    using const_pointer = typename std::allocator_traits<Allocator>::const_pointer;
+    using allocator_type = Allocator;
+    using value_type = typename std::allocator_traits<allocator_type>::value_type;
+    using pointer = typename std::allocator_traits<allocator_type>::pointer;
+    using const_pointer = typename std::allocator_traits<allocator_type>::const_pointer;
     using shape_type = Shape;
 
+  private:
+    using basic_ndarray_ref_type = agency::experimental::basic_ndarray_ref<T, Shape, Index, pointer>;
+    using const_basic_ndarray_ref_type = agency::experimental::basic_ndarray_ref<const T, Shape, Index, const_pointer>;
+
+    __AGENCY_ANNOTATION
+    basic_ndarray_ref_type& as_basic_ndarray_ref()
+    {
+      return static_cast<basic_ndarray_ref_type&>(*this);
+    }
+
+    __AGENCY_ANNOTATION
+    const basic_ndarray_ref_type& as_basic_ndarray_ref() const
+    {
+      return static_cast<const basic_ndarray_ref_type&>(*this);
+    }
+
     __agency_exec_check_disable__
     __AGENCY_ANNOTATION
-    storage(shape_type shape, const Allocator& allocator = Allocator{})
-      : data_(nullptr),
-        shape_(shape),
-        allocator_(allocator)
+    static basic_ndarray_ref_type allocate_basic_ndarray_ref(allocator_type& alloc, shape_type shape)
     {
-      if(size() > 0)
+      pointer ptr = nullptr;
+
+      if(std::size_t size = agency::detail::index_space_size(shape))
       {
-        data_ = detail::allocator_traits<Allocator>::allocate(allocator_, size());
-        if(data_ == nullptr)
+        ptr = alloc.allocate(size);
+
+        if(ptr == nullptr)
         {
           detail::throw_bad_alloc();
         }
       }
+
+      return basic_ndarray_ref_type{ptr, shape};
     }
 
     __agency_exec_check_disable__
     __AGENCY_ANNOTATION
-    storage(shape_type shape, Allocator&& allocator)
-      : data_(nullptr),
-        shape_(shape),
-        allocator_(std::move(allocator))
+    storage(basic_ndarray_ref_type&& basic_ndarray_ref, Allocator&& alloc)
+      : basic_ndarray_ref_type{std::move(basic_ndarray_ref)},
+        allocator_{std::move(alloc)}
     {
-      if(size() > 0)
-      {
-        data_ = detail::allocator_traits<Allocator>::allocate(allocator_, size());
-        if(data_ == nullptr)
-        {
-          detail::throw_bad_alloc();
-        }
-      }
+      // leave the other array ref in an empty state
+      basic_ndarray_ref = basic_ndarray_ref_type{};
     }
+
+  public:
+    __AGENCY_ANNOTATION
+    storage(shape_type shape, Allocator&& alloc)
+      : storage(allocate_basic_ndarray_ref(alloc, shape), std::move(alloc))
+    {}
 
     __agency_exec_check_disable__
     __AGENCY_ANNOTATION
-    storage(storage&& other)
-      : data_(other.data_),
-        shape_(other.shape_),
-        allocator_(std::move(other.allocator_))
-    {
-      // leave the other storage in a valid state
-      other.data_ = nullptr;
-      other.shape_ = shape_type{};
-    }
-
-    __AGENCY_ANNOTATION
-    storage(const Allocator& allocator)
-      : storage(shape_type{}, allocator)
+    storage(shape_type shape, const allocator_type& alloc = allocator_type{})
+      : storage(shape, allocator_type{alloc})
     {}
 
     __AGENCY_ANNOTATION
-    storage(Allocator&& allocator)
-      : storage(shape_type{}, std::move(allocator))
+    storage(storage&& other)
+      : storage(std::move(other.as_basic_ndarray_ref()), std::move(other.allocator()))
+    {}
+
+    __AGENCY_ANNOTATION
+    storage(const allocator_type& alloc)
+      : storage(shape_type{}, alloc)
+    {}
+
+    __AGENCY_ANNOTATION
+    storage(allocator_type&& alloc)
+      : storage(shape_type{}, std::move(alloc))
     {}
 
     __agency_exec_check_disable__
     __AGENCY_ANNOTATION
     storage()
-      : storage(Allocator())
+      : storage(allocator_type())
     {}
 
     __agency_exec_check_disable__
@@ -95,27 +115,28 @@ class storage
   private:
     __agency_exec_check_disable__
     __AGENCY_ANNOTATION
-    void move_assign_allocator(std::true_type, Allocator& other_allocator)
+    void move_assign_allocator(std::true_type, allocator_type& other_alloc)
     {
       // propagate the allocator
-      allocator_ = std::move(other_allocator);
+      allocator() = std::move(other_alloc);
     }
 
     __AGENCY_ANNOTATION
-    void move_assign_allocator(std::false_type, Allocator&)
+    void move_assign_allocator(std::false_type, allocator_type&)
     {
       // do nothing
     }
 
+    __agency_exec_check_disable__
     __AGENCY_ANNOTATION
     void reset()
     {
       if(data() != nullptr)
       {
-        detail::allocator_traits<Allocator>::deallocate(allocator(), data(), size());
+        allocator().deallocate(data(), size());
 
-        data_ = nullptr;
-        shape_ = shape_type{};
+        // empty ourself by assigning an empty basic_ndarray_ref_type to the base class
+        as_basic_ndarray_ref() = basic_ndarray_ref_type{};
       }
     }
 
@@ -128,45 +149,57 @@ class storage
       // to retain our allocator
       reset();
 
-      detail::adl_swap(data_, other.data_);
-      detail::adl_swap(shape_, other.shape_);
-
       move_assign_allocator(typename std::allocator_traits<Allocator>::propagate_on_container_move_assignment(), other.allocator());
+
+      detail::adl_swap(as_basic_ndarray_ref(), other.as_basic_ndarray_ref());
+
       return *this;
+    }
+
+    __AGENCY_ANNOTATION
+    basic_ndarray_ref_type all()
+    {
+      return as_basic_ndarray_ref();
+    }
+
+    __AGENCY_ANNOTATION
+    const_basic_ndarray_ref_type all() const
+    {
+      return as_basic_ndarray_ref();
     }
 
     __AGENCY_ANNOTATION
     pointer data()
     {
-      return data_;
+      return as_basic_ndarray_ref().data();
     }
 
     __AGENCY_ANNOTATION
     const_pointer data() const
     {
-      return data_;
+      return as_basic_ndarray_ref().data();
     }
 
     __AGENCY_ANNOTATION
     shape_type shape() const
     {
-      return shape_;
+      return as_basic_ndarray_ref().shape();
     }
 
     __AGENCY_ANNOTATION
     std::size_t size() const
     {
-      return agency::detail::shape_cast<std::size_t>(shape());
+      return as_basic_ndarray_ref().size();
     }
 
     __AGENCY_ANNOTATION
-    const Allocator& allocator() const
+    const allocator_type& allocator() const
     {
       return allocator_;
     }
 
     __AGENCY_ANNOTATION
-    Allocator& allocator()
+    allocator_type& allocator()
     {
       return allocator_;
     }
@@ -174,15 +207,12 @@ class storage
     __AGENCY_ANNOTATION
     void swap(storage& other)
     {
-      detail::adl_swap(data_, other.data_);
-      detail::adl_swap(shape_, other.shape_);
-      detail::adl_swap(allocator_, other.allocator_);
+      detail::adl_swap(allocator(), other.allocator());
+      detail::adl_swap(as_basic_ndarray_ref(), other.as_basic_ndarray_ref());
     }
 
   private:
-    pointer data_;
-    shape_type shape_;
-    Allocator allocator_;
+    allocator_type allocator_;
 };
 
 } // end detail
