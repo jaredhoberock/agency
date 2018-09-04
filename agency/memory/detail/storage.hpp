@@ -17,8 +17,9 @@ namespace detail
 // addition to what is maintained by storage
 //
 // storage inherits from basic_ndarray_ref to enable zero-cost, nested std::span-like types from containers
+// XXX template parameter T is redundant with Allocator
 template<class T, class Allocator, class Shape = std::size_t, class Index = Shape>
-class storage : private agency::experimental::basic_ndarray_ref<T, Shape, Index, typename std::allocator_traits<Allocator>::pointer>
+class storage : private agency::experimental::basic_ndarray_ref<typename std::allocator_traits<Allocator>::pointer, Shape, Index>
 {
   public:
     using allocator_type = Allocator;
@@ -28,8 +29,8 @@ class storage : private agency::experimental::basic_ndarray_ref<T, Shape, Index,
     using shape_type = Shape;
 
   private:
-    using basic_ndarray_ref_type = agency::experimental::basic_ndarray_ref<T, Shape, Index, pointer>;
-    using const_basic_ndarray_ref_type = agency::experimental::basic_ndarray_ref<const T, Shape, Index, const_pointer>;
+    using basic_ndarray_ref_type = agency::experimental::basic_ndarray_ref<pointer, Shape, Index>;
+    using const_basic_ndarray_ref_type = agency::experimental::basic_ndarray_ref<const_pointer, Shape, Index>;
 
     __AGENCY_ANNOTATION
     basic_ndarray_ref_type& as_basic_ndarray_ref()

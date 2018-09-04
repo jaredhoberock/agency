@@ -231,13 +231,13 @@ class basic_ndarray : private agency::detail::storage<T,Alloc,Shape,Index>
     }
 
     __AGENCY_ANNOTATION
-    basic_ndarray_ref<const T,shape_type,index_type,const_pointer> all() const
+    basic_ndarray_ref<const_pointer,shape_type,index_type> all() const
     {
       return super_t::all();
     }
 
     __AGENCY_ANNOTATION
-    basic_ndarray_ref<T,shape_type,index_type,pointer> all()
+    basic_ndarray_ref<pointer,shape_type,index_type> all()
     {
       return super_t::all();
     }
