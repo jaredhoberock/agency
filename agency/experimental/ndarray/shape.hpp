@@ -30,7 +30,7 @@ struct shape_customization_point
   constexpr auto operator()(A&& a) const ->
     decltype(std::forward<A>(a).shape())
   {
-    return std::forward<A>(a).all();
+    return std::forward<A>(a).shape();
   }
 
   // free function shape(a) overload
@@ -61,6 +61,9 @@ struct shape_customization_point
 }; // end shape_customization_point
 
 
+} // end detail
+
+
 namespace
 {
 
@@ -77,7 +80,6 @@ const __device__ detail::shape_customization_point shape;
 } // end anonymous namespace
 
 
-} // end detail
 } // end experimental
 } // end agency
 
